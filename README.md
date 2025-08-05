@@ -1,2 +1,2 @@
 # I-GUIDE
-I-GUIDE summer schol 2025
+I-GUIDE summer school 2025
