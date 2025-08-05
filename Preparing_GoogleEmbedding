@@ -1,0 +1,76 @@
+// bounding box
+
+var west = -61;
+var south = -24;
+var east = -52;
+var north = -13;
+
+var bbox = ee.Geometry.Rectangle({
+  coords: [-61, -24, -52, -13],  // [W, S, E, N]
+  geodesic: false
+});
+
+Map.centerObject(bbox, 6);
+Map.addLayer(bbox, {color: 'red'}, 'Bounding Box',false);
+
+//EPSG 5880
+
+var GoogleEmbedding = ee.ImageCollection('GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL')
+ .filterDate('2024-01-01', '2025-01-01')
+      .filterBounds(bbox)
+     .mosaic()
+
+// Visualize 
+var visParams = {min: -0.3, max: 0.3, bands: ['A01', 'A16', 'A09']};
+
+
+Map.addLayer(GoogleEmbedding, visParams, '2024 embeddings',false)
+
+var Burn = ee.ImageCollection("MODIS/061/MCD64A1").select('BurnDate').filterBounds(bbox).first()
+Burn.projection().aside(print)
+Map.addLayer(Burn)
+
+var ResampledEmbedding = GoogleEmbedding.setDefaultProjection(Burn.projection())
+.reduceResolution({
+  reducer: ee.Reducer.mean(), bestEffort: true, maxPixels: 2500}).multiply(100).toInt8()
+  
+  Map.addLayer(ResampledEmbedding)
+  
+  ResampledEmbedding.projection().nominalScale().aside(print)
+  
+
+
+
+
+var midLon = (west + east) / 2;     // -56.5
+var midLat = (south + north) / 2;   // -18.5
+Map.addLayer(ResampledEmbedding)
+// Define each quadrant
+var topLeft = ee.Geometry.Rectangle({
+  coords: [west, midLat, midLon, north],  // [W, S, E, N]
+  geodesic: false
+});
+var topRight = ee.Geometry.Rectangle({
+  coords: [midLon, midLat, east, north],  // [W, S, E, N]
+  geodesic: false
+});
+
+var bottomLeft =  ee.Geometry.Rectangle({
+  coords: [west, south, midLon, midLat],  // [W, S, E, N]
+  geodesic: false
+});
+
+var bottomRight =  ee.Geometry.Rectangle({
+  coords: [midLon, south, east, midLat],  // [W, S, E, N]
+  geodesic: false
+});
+
+
+Map.addLayer(ResampledEmbedding.clip(topLeft))
+  Export.image.toDrive({
+    image:ResampledEmbedding, description: 'ResampledEmbedding_bottomRight',
+    region: bottomRight, scale:  ResampledEmbedding.projection().nominalScale(), 
+    crs: 'EPSG:32721' , maxPixels: 1e13} )
+    
+    
+    
